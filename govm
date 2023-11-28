@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+
+import argparse
+import os
+import sys
+
+'''
+go version manager
+'''
+
+go_dir = ""
+dest_dir = ""
+try:    
+    with open(f"/home/{os.getlogin()}/.govmrc") as cfg:
+        for line in cfg.readlines():
+            parts = line.strip().split('=')
+            if len(parts) < 2:
+                continue
+            if len(parts) > 2:
+                parts = [parts[0], "".join(parts[1:])]
+            parts[1] = "".join(parts[1].split('"'))
+            match parts[0]:
+                case "go_dir":
+                    go_dir = parts[1]    
+                case "dest_dir":
+                    dest_dir = parts[1]
+except OSError:
+    go_dir = "/usr/local/golang"
+    dest_dir = "/usr/local/bin"
+    
+
+parser = argparse.ArgumentParser(description="golang version manager")
+
+subparsers = parser.add_subparsers(dest='command')
+
+ls_parser = subparsers.add_parser('ls', help="list local versions")
+
+use_parser = subparsers.add_parser('use', help="switch to specified version")
+use_parser.add_argument('version', type=str, help="version to switch to")
+
+args = parser.parse_args()
+
+if args.command == 'ls':
+    for version in os.listdir(go_dir):
+        print(version)
+
+elif args.command == 'use':
+    version = args.version
+    
+    search_term = version
+    parts = version.split('go')
+    if len(parts) == 1:
+        search_term = f"go{version}"
+        
+    if search_term not in os.listdir(go_dir):
+        print(f"version {version} not installed")
+        sys.exit(1)
+    go_bin = os.path.join(dest_dir, 'go')
+    if os.path.islink(go_bin):
+        os.remove(go_bin)
+    os.symlink(os.path.join(go_dir, search_term, 'bin', 'go'), go_bin)
+    print(f"switched to {search_term}")
+
+else:
+    parser.print_help()
